@@ -297,13 +297,20 @@ resource "aws_iam_user_policy" "circleci" {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "Stmt1544988926533",
+      "Sid": "S3Write",
       "Action": [
-        "s3:PutObject",
-        "cloudfront:CreateInvalidation"
+        "s3:PutObject"
       ],
       "Effect": "Allow",
       "Resource": "arn:aws:s3:::danhatesnumbers-cv-hosting/CV.pdf"
+    },
+    {
+      "Sid": "CloudFrontInvalidate",
+      "Action": [
+        "cloudfront:CreateInvalidation"
+      ],
+      "Effect": "Allow",
+      "Resource": "*"
     }
   ]
 }
