@@ -7,12 +7,12 @@ terraform {
 }
 
 provider "aws" {
-    region = "us-east-1"
-	alias = "aws_us"
+  region = "us-east-1"
+  alias  = "aws_us"
 }
 
 provider "aws" {
-    region = "${var.aws_region}"
+  region = var.aws_region
 }
 
 data "aws_iam_policy_document" "state-bucket-policy" {
@@ -48,7 +48,7 @@ data "aws_iam_policy_document" "state-bucket-policy" {
 resource "aws_s3_bucket" "state-bucket" {
   bucket = "danhatesnumbers-cv-infra-tf-state"
   acl    = "private"
-  policy = "${data.aws_iam_policy_document.state-bucket-policy.json}"
+  policy = data.aws_iam_policy_document.state-bucket-policy.json
 
   versioning {
     enabled = true
@@ -117,7 +117,7 @@ data "aws_iam_policy_document" "hosting-bucket-policy" {
 
     principals {
       type        = "AWS"
-      identifiers = ["${aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"]
+      identifiers = [aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn]
     }
   }
 
@@ -127,15 +127,15 @@ data "aws_iam_policy_document" "hosting-bucket-policy" {
 
     principals {
       type        = "AWS"
-      identifiers = ["${aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn}"]
+      identifiers = [aws_cloudfront_origin_access_identity.origin_access_identity.iam_arn]
     }
   }
 }
 
 resource "aws_s3_bucket" "hosting-bucket" {
-	bucket = "danhatesnumbers-cv-hosting"
-	acl    = "private"
-  	policy = "${data.aws_iam_policy_document.hosting-bucket-policy.json}"
+  bucket = "danhatesnumbers-cv-hosting"
+  acl    = "private"
+  policy = data.aws_iam_policy_document.hosting-bucket-policy.json
 
   versioning {
     enabled = true
@@ -169,7 +169,8 @@ resource "aws_s3_bucket" "hosting-bucket" {
   }
 }
 
-resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {}
+resource "aws_cloudfront_origin_access_identity" "origin_access_identity" {
+}
 
 locals {
   s3_origin_id = "myS3Origin"
@@ -177,12 +178,12 @@ locals {
 
 resource "aws_cloudfront_distribution" "s3_distribution" {
   origin {
-    domain_name = "${aws_s3_bucket.hosting-bucket.bucket_regional_domain_name}"
-    origin_id   = "${local.s3_origin_id}"
+    domain_name = aws_s3_bucket.hosting-bucket.bucket_regional_domain_name
+    origin_id   = local.s3_origin_id
 
     s3_origin_config {
-  		origin_access_identity = "${aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path}"
-	}
+      origin_access_identity = aws_cloudfront_origin_access_identity.origin_access_identity.cloudfront_access_identity_path
+    }
   }
 
   enabled             = true
@@ -194,7 +195,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   default_cache_behavior {
     allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "${local.s3_origin_id}"
+    target_origin_id = local.s3_origin_id
 
     forwarded_values {
       query_string = false
@@ -215,7 +216,7 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
     path_pattern     = "/*"
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
     cached_methods   = ["GET", "HEAD"]
-    target_origin_id = "${local.s3_origin_id}"
+    target_origin_id = local.s3_origin_id
 
     forwarded_values {
       query_string = false
@@ -235,22 +236,22 @@ resource "aws_cloudfront_distribution" "s3_distribution" {
   price_class = "PriceClass_100"
 
   restrictions {
-	  geo_restriction {
-	  	locations = []
-	  	restriction_type = "none"
-	  }
+    geo_restriction {
+      locations        = []
+      restriction_type = "none"
+    }
   }
 
   viewer_certificate {
-    acm_certificate_arn = "${aws_acm_certificate.cert.arn}"
-	minimum_protocol_version = "TLSv1.2_2018"
-	ssl_support_method = "sni-only"
+    acm_certificate_arn      = aws_acm_certificate.cert.arn
+    minimum_protocol_version = "TLSv1.2_2018"
+    ssl_support_method       = "sni-only"
   }
 }
 
 resource "aws_acm_certificate" "cert" {
-  provider = "aws.aws_us"
-  domain_name = "cv.danhatesnumbers.co.uk"
+  provider          = aws.aws_us
+  domain_name       = "cv.danhatesnumbers.co.uk"
   validation_method = "DNS"
 
   lifecycle {
@@ -258,39 +259,38 @@ resource "aws_acm_certificate" "cert" {
   }
 }
 
-
 resource "aws_route53_record" "cert_validation" {
-  name    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_name}"
-  type    = "${aws_acm_certificate.cert.domain_validation_options.0.resource_record_type}"
-  zone_id = "${var.hosted_zone_id}"
-  records = ["${aws_acm_certificate.cert.domain_validation_options.0.resource_record_value}"]
+  name    = aws_acm_certificate.cert.domain_validation_options[0].resource_record_name
+  type    = aws_acm_certificate.cert.domain_validation_options[0].resource_record_type
+  zone_id = var.hosted_zone_id
+  records = [aws_acm_certificate.cert.domain_validation_options[0].resource_record_value]
   ttl     = 60
 }
 
 resource "aws_route53_record" "cv_domain" {
-  zone_id = "${var.hosted_zone_id}"
-  name = "cv.danhatesnumbers.co.uk"
-  type = "A"
+  zone_id = var.hosted_zone_id
+  name    = "cv.danhatesnumbers.co.uk"
+  type    = "A"
 
   alias {
-    name = "${aws_cloudfront_distribution.s3_distribution.domain_name}"
-    zone_id = "${aws_cloudfront_distribution.s3_distribution.hosted_zone_id}"
+    name                   = aws_cloudfront_distribution.s3_distribution.domain_name
+    zone_id                = aws_cloudfront_distribution.s3_distribution.hosted_zone_id
     evaluate_target_health = false
   }
 }
 
 resource "aws_iam_user" "circleci_deployment" {
-	name = "circledi_deployment"
-	path = "/cv/"
+  name = "circledi_deployment"
+  path = "/cv/"
 }
 
 resource "aws_iam_access_key" "circleci" {
-  user = "${aws_iam_user.circleci_deployment.name}"
+  user = aws_iam_user.circleci_deployment.name
 }
 
 resource "aws_iam_user_policy" "circleci" {
   name = "s3put"
-  user = "${aws_iam_user.circleci_deployment.name}"
+  user = aws_iam_user.circleci_deployment.name
 
   policy = <<EOF
 {
@@ -315,4 +315,6 @@ resource "aws_iam_user_policy" "circleci" {
   ]
 }
 EOF
+
 }
+
